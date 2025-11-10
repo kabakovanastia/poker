@@ -1,3 +1,7 @@
+import random
+import secrets
+import math
+
 KEY_SIZE = 2048
 
 def check_small_prime(n):
@@ -33,7 +37,7 @@ def miller_rabin(n, k=30):
 def gen_prime(n):
     rand_odd = secrets.randbits(n) | ((1 << (n - 1)) + 1)
     g = 0
-    while not (check_small_prime(rand_odd) and miller_rabin(rand_odd, k=50)):
+    while not (miller_rabin(rand_odd, k=30)):
         g += 1
         rand_odd += 2
         if rand_odd.bit_length() > n:
@@ -67,8 +71,7 @@ def rsa_decrypt(message, key):
     return pow(message, key[0], key[1])
 
 
-def gen_shamir_key(n):
-    prime = gen_prime(n)
+def gen_shamir_key(prime):
     rand_odd = secrets.randbelow(prime - 2) | 1
 
     while True:
@@ -89,11 +92,12 @@ def shamir_decrypt(message, key):
     return [pow(m, key[1], key[2]) for m in message]
 
 class ShamirCrypt():
-    def __init__():
-        self.key = gen_shamir_key(KEY_SIZE)
+    def __init__(self, prime):
+        self.prime = prime
+        self.key = gen_shamir_key(prime)
 
-    def encrypt(msg):
+    def encrypt(self, msg):
         return shamir_encrypt(msg, self.key)
 
-    def decrypt(msg):
+    def decrypt(self, msg):
         return shamir_decrypt(msg, self.key)

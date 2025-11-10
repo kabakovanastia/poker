@@ -10,7 +10,15 @@ card_suit = {1: '♣', 2: '♦', 3: '♥', 4: '♠'}
 class CardDeck():
     cards = deck
 
-    def get_card_shuffle_ind(self):
+    def get_card_shuffle(self):
         a = list(self.cards.keys())
         random.shuffle(a) 
         return a
+
+def show_deck(cards):
+    c = []
+    for i in cards:
+        card = deck[i]
+        c.append(f'{card_str[card[0]]}{card_suit[card[1]]}')
+
+    print(' '.join(c))
