@@ -1,32 +1,26 @@
-import random
 import secrets
 import math
 
-KEY_SIZE = 2048
-
-def check_small_prime(n):
-    for p in PRIME_NUMS:
-        if n % p == 0:
-            if n == p:
-                continue
-            return False
-    return True
-
 def miller_rabin(n, k=30):
-    # x - 1 = 2^s * d
+    if n < 2:
+        return False
+    if n in (2, 3):
+        return True
+    if n % 2 == 0:
+        return False
+
+    r = 0
     d = n - 1
-    s = 0
-    while d & 1 == 0:
-        s += 1
-        d >>= 1
+    while d % 2 == 0:
+        r += 1
+        d //= 2
 
     for _ in range(k):
-        a = random.randint(2, n - 2)
+        a = secrets.randbelow(n - 3) + 2
         x = pow(a, d, n)
-        if (x == 1) or (x == n - 1):
+        if x in (1, n - 1):
             continue
-
-        for _ in range(s - 1):
+        for _ in range(r - 1):
             x = pow(x, 2, n)
             if x == n - 1:
                 break
@@ -35,55 +29,17 @@ def miller_rabin(n, k=30):
     return True
 
 def gen_prime(n):
-    rand_odd = secrets.randbits(n) | ((1 << (n - 1)) + 1)
-    g = 0
-    while not (miller_rabin(rand_odd, k=30)):
-        g += 1
-        rand_odd += 2
-        if rand_odd.bit_length() > n:
-            rand_odd = secrets.randbits(n) | ((1 << (n - 1)) + 1)
-
-    return rand_odd
-
-def get_rsa_keys(n, e):
-    p = gen_prime(n // 2 - 2)
-    q = gen_prime(n // 2 + 2)
-
     while True:
-        if (p - 1) % e == 0:
-            p = gen_prime(n // 2 - 2)
-            continue
-        if (q - 1) % e == 0:
-            q = gen_prime(n // 2 + 2)
-            continue
-        break
-
-    N = p * q
-    phi = (p - 1) * (q - 1)
-    d = pow(e, -1, phi)
-
-    return (e, N), (d, N)
-
-def rsa_encrypt(message, key):
-    return pow(message, key[0], key[1])
-
-def rsa_decrypt(message, key):
-    return pow(message, key[0], key[1])
-
+        candidate = secrets.randbits(n) | 1
+        if miller_rabin(candidate):
+            return candidate
 
 def gen_shamir_key(prime):
-    rand_odd = secrets.randbelow(prime - 2) | 1
-
     while True:
-        if math.gcd(rand_odd, prime - 1) == 1:
-            break
-
-        if rand_odd >= prime - 1:
-            rand_odd = secrets.randbelow(prime - 2) | 1
-
-        rand_odd += 2
-
-    return (rand_odd, pow(rand_odd, -1, prime - 1), prime)
+        e = secrets.randbelow(prime - 2) | 1
+        if math.gcd(e, prime - 1) == 1:
+            d = pow(e, -1, prime - 1)
+            return (e, d, prime)
 
 def shamir_encrypt(message, key):
     return [pow(m, key[0], key[2]) for m in message]
@@ -91,7 +47,7 @@ def shamir_encrypt(message, key):
 def shamir_decrypt(message, key):
     return [pow(m, key[1], key[2]) for m in message]
 
-class ShamirCrypt():
+class ShamirCrypt:
     def __init__(self, prime):
         self.prime = prime
         self.key = gen_shamir_key(prime)
