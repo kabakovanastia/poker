@@ -7,8 +7,8 @@ from ShamirCrypt import ShamirCrypt, gen_prime
 from CardDeck import CardDeck, show_deck
 
 async def start_game_host(websocket):
-    print('2-й игрок подключен')
-    print('Генерация простого числа для шифровния')
+    print('2-й игрок подключён')
+    print('Генерация простого числа для шифрования')
     p = gen_prime(128)
     cr = ShamirCrypt(p)
 
@@ -66,8 +66,7 @@ async def start_game_host(websocket):
     
     print('Отправляю расшифрованную карту со стола 2-му игроку')
     await websocket.send(' '.join(map(str, table1)))
-
-
+    
 
     print('Беру 1 карту из колоды и отправляю ее на расшифровку 2-му игроку')
     await websocket.send(' '.join(map(str, cards[8:9])))
@@ -116,7 +115,6 @@ async def start_game_host(websocket):
 
     is_game_correct = all([len(c) == len(set(c)), [*my_cards, *op_cards, *table, *table1, *table2] == c[:9]])
     print(f'\nИгра корректная: {is_game_correct}')
-
 
 
 
@@ -220,8 +218,6 @@ async def start_game_client(websocket):
     print(f'\nИгра корректная: {is_game_correct}')
 
 
-
-    
 
 async def main():
     ip, port, status = sys.argv[1:4]

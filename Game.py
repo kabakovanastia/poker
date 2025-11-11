@@ -1,7 +1,7 @@
 from typing import List
 from Connection import Connection
 from CardDeck import CardDeck, show_deck
-from ShamirCrypt import gen_prime, KEY_SIZE
+from ShamirCrypt import gen_prime, KEY_SIZE, ShamirCrypt
 import asyncio
 
 class Game():
@@ -48,10 +48,6 @@ class Game():
             print('Генерация шифровальщика')
             self.crypt = ShamirCrypt(self.p)
 
-            
-
-
-            
 
 
 

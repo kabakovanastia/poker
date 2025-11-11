@@ -12,7 +12,7 @@ class Connection:
 
         return self.connection
 
-    async def send(msg: str):
+    async def send(self, msg: str):
         await self.client.send(msg)
 
     async def recv(self):
