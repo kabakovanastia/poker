@@ -86,8 +86,8 @@ async def betting_round(status: str, websocket) -> bool:
     return True
 
 async def start_game_host(websocket):
-    print('2-й игрок подключен')
-    print('Генерация простого числа для шифровния')
+    print('2-й игрок подключён')
+    print('Генерация простого числа для шифрования')
     p = gen_prime(128)
     cr = ShamirCrypt(p)
 
@@ -231,7 +231,6 @@ async def start_game_host(websocket):
 
 
 
-
 async def start_game_client(websocket):
     print('Получение простого числа')
     p = await websocket.recv()
@@ -367,8 +366,6 @@ async def start_game_client(websocket):
     print(f'\nИгра корректная: {is_game_correct}')
 
 
-
-    
 
 async def main():
     ip, port, status = sys.argv[1:4]
