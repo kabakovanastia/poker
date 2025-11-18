@@ -6,6 +6,85 @@ import random
 from ShamirCrypt import ShamirCrypt, gen_prime
 from CardDeck import CardDeck, show_deck
 
+STARTING_STACK = 100
+SMALL_BLIND = 1
+BIG_BLIND = 2
+
+async def async_input(prompt: str = "") -> str:
+    print(prompt, end='', flush=True)
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, sys.stdin.readline)
+
+async def betting_round(status: str, websocket) -> bool:
+    if status == 'host':
+        print("\n=== Торговля ===")
+        print("Вы — игрок 1. Ожидание действия от игрока 2...")
+        my_turn_first = False
+    else:  # client
+        print("\n=== Торговля ===")
+        print("Вы — игрок 2. Ваш ход первым.")
+        my_turn_first = True
+
+    is_my_turn = my_turn_first
+    counter = 2
+
+    while counter > 0:
+        if is_my_turn:
+            while True:
+                raw_input = (await async_input("Ваша очередь (fold / call / raise <сумма>): ")).strip()
+                parts = raw_input.split()
+                if not parts:
+                    continue
+                action = parts[0]
+                if action == "fold" and len(parts) == 1:
+                    break
+                elif action == "call" and len(parts) == 1:
+                    break
+                elif action == "raise" and len(parts) == 2:
+                    try:
+                        amount = int(parts[1])
+                        if amount > 0:
+                            raw_input = f"raise {amount}"
+                            break
+                        else:
+                            print("Сумма должна быть положительной.")
+                    except ValueError:
+                        print("Неверная сумма. Пример: raise 10")
+                else:
+                    print("Неверный ввод. Примеры: fold | call | raise 10")
+
+            await websocket.send(raw_input)
+
+            if raw_input == "fold":
+                winner = "Игрок 2" if status == 'host' else "Игрок 1"
+                print(f"Вы сбросили. {winner} выиграл банк!")
+                return False
+            elif raw_input.startswith("raise"):
+                counter = 2
+            else:  # call
+                counter -= 1
+
+            is_my_turn = not is_my_turn
+
+        else:
+            message = await websocket.recv()
+            opponent = "Игрок 2" if status == 'host' else "Игрок 1"
+            print(f"{opponent}: {message}")
+
+            if message == "fold":
+                winner = "Вы" if status == 'host' else "Вы"
+                print(f"{opponent} сбросил. {winner} выиграли банк!")
+                return False
+            elif message.startswith("raise"):
+                counter = 2
+            else:  # call
+                counter -= 1
+
+            is_my_turn = not is_my_turn
+
+    print("Торговля завершена.")
+    return True
+
 async def start_game_host(websocket):
     print('2-й игрок подключён')
     print('Генерация простого числа для шифрования')
@@ -27,6 +106,10 @@ async def start_game_host(websocket):
 
     print('Получение зашифрованной и перемешанной колоды от 2-го игрока')
     cards = list(map(int, (await websocket.recv()).split(' ')))
+    
+    print('\n' + '><'*40)
+    print('ПРЕФЛОП - раздача карт игрокам')
+    print('><'*40)
 
     print('Беру 2 карты из колоды и отправляю на расшифровку 2-му игроку')
     await websocket.send(' '.join(map(str, cards[:2])))
@@ -35,11 +118,29 @@ async def start_game_host(websocket):
     my_cards = cr.decrypt(list(map(int, (await websocket.recv()).split(' '))))
     show_deck(my_cards)
 
-    print('Получаю 2 карты игрока для расшифровки, снимаю свой уровень шифрования и отправляю обратно')
+    print('Получаю 2 карты игрока для расшифровки, \nснимаю свой уровень шифрования и отправляю обратно')
     c = cr.decrypt(list(map(int, (await websocket.recv()).split(' '))))
     await websocket.send(' '.join(map(str, c)))
 
+    # === Инициализация стеков и блайндов ===
+    my_stack = STARTING_STACK - SMALL_BLIND     # Я — SB
+    opponent_stack = STARTING_STACK - BIG_BLIND # Оппонент — BB
+    pot = SMALL_BLIND + BIG_BLIND
+    to_call = BIG_BLIND - SMALL_BLIND  # Мне нужно доплатить 1, чтобы уравнять
 
+    # ------------------------
+    # print(f"\nСтартовые блайнды: SB={SMALL_BLIND}, BB={BIG_BLIND}")
+    # print(f"Ваш стек: {my_stack}, стек оппонента: {opponent_stack}, банк: {pot}")
+
+    game_continues = await betting_round('host', websocket)
+    if not game_continues:
+        return
+    # ------------------------
+
+
+    print('\n' + '><'*40)
+    print('ФЛОП - первые 3 общие карты')
+    print('><'*40)
 
     print('Беру 3 карты из колоды и отправляю их на расшифровку 2-му игроку')
     await websocket.send(' '.join(map(str, cards[4:7])))
@@ -51,33 +152,63 @@ async def start_game_host(websocket):
     print('Отправляю расшифрованные карты со стола 2-му игроку')
     await websocket.send(' '.join(map(str, table)))
 
+    #-------------------------
+    game_continues = await betting_round('host', websocket)
+    if not game_continues:
+        return
+    # ------------------------
 
+
+    print('\n' + '><'*40)
+    print('ТЁРН - четвёртая общая карта')
+    print('><'*40)
 
     print('Беру 1 карту из колоды и отправляю ее на расшифровку 2-му игроку')
     await websocket.send(' '.join(map(str, cards[7:8])))
 
     print('Получаю карты обратно и снимаю свой уровень шифрования')
     table1 = cr.decrypt(list(map(int, (await websocket.recv()).split(' '))))
-    show_deck(table1)
-    #-------ПОДМЕНА КАРТЫ--------------
-    table1[0] = 58473653
-    show_deck(table1)
-    #-------ПОДМЕНА КАРТЫ--------------
+    show_deck([*table, *table1])
+    # #-------ПОДМЕНА КАРТЫ--------------
+    # table1[0] = 58473653
+    # show_deck(table1)
+    # #-------ПОДМЕНА КАРТЫ--------------
     
     print('Отправляю расшифрованную карту со стола 2-му игроку')
     await websocket.send(' '.join(map(str, table1)))
-    
+
+    #-------------------------
+    game_continues = await betting_round('host', websocket)
+    if not game_continues:
+        return
+    # ------------------------
+
+
+    print('\n' + '><'*40)
+    print('РИВЕР - пятая общая карта')
+    print('><'*40)
 
     print('Беру 1 карту из колоды и отправляю ее на расшифровку 2-му игроку')
     await websocket.send(' '.join(map(str, cards[8:9])))
 
     print('Получаю карты обратно и снимаю свой уровень шифрования')
     table2 = cr.decrypt(list(map(int, (await websocket.recv()).split(' '))))
-    show_deck(table2)
+    show_deck([*table, *table1, *table2])
 
     print('Отправляю расшифрованную карту со стола 2-му игроку')
     await websocket.send(' '.join(map(str, table2)))
 
+    #-------------------------
+    game_continues = await betting_round('host', websocket)
+    if not game_continues:
+        return
+    # ------------------------
+
+
+    print('\n' + '><'*40)
+    print('ШОУДАУН - вскрытие карт')
+    print('><'*40)
+    
     print('Отправляю свои карты 2-му игроку (КОНЕЦ ИГРЫ)')
     await websocket.send(' '.join(map(str, my_cards)))
 
@@ -143,10 +274,26 @@ async def start_game_client(websocket):
     print('Получаю карты обратно и снимаю свой уровень шифрования')
     my_cards = cr.decrypt(list(map(int, (await websocket.recv()).split(' '))))
     show_deck(my_cards)
-    #-------ПОДМЕНА КАРТЫ--------------
-    my_cards[0] = 58473653
-    show_deck(my_cards)
-    #-------ПОДМЕНА КАРТЫ--------------
+    # #-------ПОДМЕНА КАРТЫ--------------
+    # my_cards[0] = 58473653
+    # show_deck(my_cards)
+    # #-------ПОДМЕНА КАРТЫ--------------
+
+    # === Инициализация стеков и блайндов ===
+    my_stack = STARTING_STACK - SMALL_BLIND     # Я — SB
+    opponent_stack = STARTING_STACK - BIG_BLIND # Оппонент — BB
+    pot = SMALL_BLIND + BIG_BLIND
+    to_call = BIG_BLIND - SMALL_BLIND  # Мне нужно доплатить 1, чтобы уравнять
+
+    # ------------------------
+    # print(f"\nСтартовые блайнды: SB={SMALL_BLIND}, BB={BIG_BLIND}")
+    # print(f"Ваш стек: {my_stack}, стек оппонента: {opponent_stack}, банк: {pot}")
+
+    #-------------------------
+    game_continues = await betting_round('client', websocket)
+    if not game_continues:
+        return
+    # ------------------------
     
 
 
@@ -159,6 +306,12 @@ async def start_game_client(websocket):
     table = list(map(int, (await websocket.recv()).split(' ')))
     show_deck(table)
 
+    #-------------------------
+    game_continues = await betting_round('client', websocket)
+    if not game_continues:
+        return
+    # ------------------------
+
 
 
     print('Получаю 1 карту из колоды для расшифровки, снимаю свой уровень шифрования и отправляю обратно')
@@ -167,7 +320,13 @@ async def start_game_client(websocket):
 
     print('Получаю карту со стола')
     table1 = list(map(int, (await websocket.recv()).split(' ')))
-    show_deck(table1)
+    show_deck([*table, *table1])
+
+    #-------------------------
+    game_continues = await betting_round('client', websocket)
+    if not game_continues:
+        return
+    # ------------------------
 
 
 
@@ -177,7 +336,14 @@ async def start_game_client(websocket):
 
     print('Получаю карту со стола')
     table2 = list(map(int, (await websocket.recv()).split(' ')))
-    show_deck(table2)
+    show_deck([*table, *table1, *table2])
+
+    #-------------------------
+    game_continues = await betting_round('client', websocket)
+    if not game_continues:
+        return
+    # ------------------------
+
 
     print('Отправляю свои карты 1-му игроку (КОНЕЦ ИГРЫ)')
     await websocket.send(' '.join(map(str, my_cards)))
