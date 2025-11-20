@@ -5,4 +5,8 @@ venv
 test.ipynb
 test_lab.py
 .vscode
-
+build
+dist
+launcher.py
+launcher.spec
+archiver.py

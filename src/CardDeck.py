@@ -21,4 +21,5 @@ def show_deck(cards):
         card = deck[i]
         c.append(f'{card_str[card[0]]}{card_suit[card[1]]}')
 
-    print(' '.join(c))
+    for i in range(0, len(c), 13):
+        print(' '.join(c[i:i+13]))

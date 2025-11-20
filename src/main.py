@@ -16,12 +16,11 @@ async def async_input(prompt: str = "") -> str:
     return await loop.run_in_executor(None, sys.stdin.readline)
 
 async def betting_round(status: str, websocket) -> bool:
+    print("\n=== Торговля ===")
     if status == 'host':
-        print("\n=== Торговля ===")
         print("Вы — игрок 1. Ожидание действия от игрока 2...")
         my_turn_first = False
     else:  # client
-        print("\n=== Торговля ===")
         print("Вы — игрок 2. Ваш ход первым.")
         my_turn_first = True
 
@@ -64,15 +63,13 @@ async def betting_round(status: str, websocket) -> bool:
             else:  # call
                 counter -= 1
 
-            is_my_turn = not is_my_turn
-
         else:
             message = await websocket.recv()
             opponent = "Игрок 2" if status == 'host' else "Игрок 1"
             print(f"{opponent}: {message}")
 
             if message == "fold":
-                winner = "Вы" if status == 'host' else "Вы"
+                winner = "Вы"
                 print(f"{opponent} сбросил. {winner} выиграли банк!")
                 return False
             elif message.startswith("raise"):
@@ -80,7 +77,7 @@ async def betting_round(status: str, websocket) -> bool:
             else:  # call
                 counter -= 1
 
-            is_my_turn = not is_my_turn
+        is_my_turn = not is_my_turn
 
     print("Торговля завершена.")
     return True
@@ -240,7 +237,7 @@ async def start_game_host(websocket):
     show_deck(c)
 
     print(f'\nВсе карты в колоде уникальны: {len(c) == len(set(c))}')
-    print(f'Первые 9 карт из колоды совпадают с картами игроков и картами на столе: {[*my_cards, *op_cards, *table, *table1, *table2] == c[:9]}')
+    print(f'Первые 9 карт из колоды \nсовпадают с картами игроков и картами на столе: {[*my_cards, *op_cards, *table, *table1, *table2] == c[:9]}')
     show_deck([*my_cards, *op_cards, *table, *table1, *table2])
     show_deck(c[:9])
 
@@ -263,8 +260,12 @@ async def start_game_client(websocket):
 
     print('Отправка зашифрованной и перемешанной колоды 1-му игроку')
     await websocket.send(' '.join(map(str, cards)))
+    
+    print('\n' + '><'*40)
+    print('ПРЕФЛОП - раздача карт игрокам')
+    print('><'*40)
 
-    print('Получаю 2 карты игрока для расшифровки, снимаю свой уровень шифрования и отправляю обратно')
+    print('Получаю 2 карты игрока для расшифровки, \nснимаю свой уровень шифрования и отправляю обратно')
     c = cr.decrypt(list(map(int, (await websocket.recv()).split(' '))))
     await websocket.send(' '.join(map(str, c)))
 
@@ -296,9 +297,11 @@ async def start_game_client(websocket):
     # ------------------------
     
 
+    print('\n' + '><'*40)
+    print('ФЛОП - первые 3 общие карты')
+    print('><'*40)
 
-
-    print('Получаю 3 карты из колоды для расшифровки, снимаю свой уровень шифрования и отправляю обратно')
+    print('Получаю 3 карты из колоды для расшифровки, \nснимаю свой уровень шифрования и отправляю обратно')
     c = cr.decrypt(list(map(int, (await websocket.recv()).split(' '))))
     await websocket.send(' '.join(map(str, c)))
 
@@ -313,8 +316,11 @@ async def start_game_client(websocket):
     # ------------------------
 
 
+    print('\n' + '><'*40)
+    print('ТЁРН - четвёртая общая карта')
+    print('><'*40)
 
-    print('Получаю 1 карту из колоды для расшифровки, снимаю свой уровень шифрования и отправляю обратно')
+    print('Получаю 1 карту из колоды для расшифровки, \nснимаю свой уровень шифрования и отправляю обратно')
     c = cr.decrypt(list(map(int, (await websocket.recv()).split(' '))))
     await websocket.send(' '.join(map(str, c)))
 
@@ -329,8 +335,11 @@ async def start_game_client(websocket):
     # ------------------------
 
 
+    print('\n' + '><'*40)
+    print('РИВЕР - пятая общая карта')
+    print('><'*40)
 
-    print('Получаю 1 карту из колоды для расшифровки, снимаю свой уровень шифрования и отправляю обратно')
+    print('Получаю 1 карту из колоды для расшифровки, \nснимаю свой уровень шифрования и отправляю обратно')
     c = cr.decrypt(list(map(int, (await websocket.recv()).split(' '))))
     await websocket.send(' '.join(map(str, c)))
 
@@ -344,6 +353,10 @@ async def start_game_client(websocket):
         return
     # ------------------------
 
+
+    print('\n' + '><'*40)
+    print('ШОУДАУН - вскрытие карт')
+    print('><'*40)
 
     print('Отправляю свои карты 1-му игроку (КОНЕЦ ИГРЫ)')
     await websocket.send(' '.join(map(str, my_cards)))
@@ -376,7 +389,7 @@ async def start_game_client(websocket):
     show_deck(c)
 
     print(f'\nВсе карты в колоде уникальны: {len(c) == len(set(c))}')
-    print(f'Первые 9 карт из колоды совпадают с картами игроков и картами на столе: {[*op_cards, *my_cards, *table, *table1, *table2] == c[:9]}')
+    print(f'Первые 9 карт из колоды \nсовпадают с картами игроков и картами на столе: {[*op_cards, *my_cards, *table, *table1, *table2] == c[:9]}')
     show_deck([*op_cards, *my_cards, *table, *table1, *table2])
     show_deck(c[:9])
 
